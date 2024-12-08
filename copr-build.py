@@ -57,7 +57,7 @@ COPR = "ryanabx/cosmic-epoch"
 TOPLEVEL_VERSION = "1.0.0~alpha.4"
 
 token = os.environ.get("PAT_GITHUB")
-copr_config = os.environ.get("COPR_CONFIG")
+copr_config = os.environ.get("COPR_AUTH")
 
 if copr_config:
     # Get the path to ~/.config/copr
