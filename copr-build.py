@@ -56,9 +56,7 @@ repos = {
 COPR = "ryanabx/cosmic-epoch"
 TOPLEVEL_VERSION = "1.0.0~alpha.4"
 
-token = os.environ.get("PAT_GITHUB")
 copr_config = os.environ.get("COPR_AUTH")
-
 if copr_config:
     # Get the path to ~/.config/copr
     config_dir = os.path.expanduser("~/.config")
@@ -74,6 +72,7 @@ if copr_config:
 
 # print(token)
 # exit()
+token = os.environ.get("PAT_GITHUB")
 headers = {
     "Authorization": f"Bearer {token}",
     "Accept": "application/vnd.github.v3+json"  # Use the GitHub API version
