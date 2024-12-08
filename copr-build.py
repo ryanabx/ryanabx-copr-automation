@@ -56,7 +56,7 @@ repos = {
 COPR = "ryanabx/cosmic-epoch"
 TOPLEVEL_VERSION = "1.0.0~alpha.4"
 
-token = os.environ.get("GITHUB_PAT")
+token = os.environ.get("PAT_GITHUB")
 copr_config = os.environ.get("COPR_CONFIG")
 
 if copr_config:

@@ -10,8 +10,8 @@ on:
 
 env:
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-  COPR_AUTH: ${{ secrets.copr_auth }}
-  GITHUB_PAT: ${{ secrets.pat }}
+  COPR_AUTH: ${{ secrets.COPR_AUTH }}
+  PAT_GITHUB: ${{ secrets.PAT_GITHUB }}
 
 jobs:
   build:
