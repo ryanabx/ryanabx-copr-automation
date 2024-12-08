@@ -100,7 +100,7 @@ for i in copr_packages:
     if req.status_code == 200:
         json_data = req.json()
         git_sha2 = json_data[0]["sha"][0:7]
-        if git_sha != git_sha2 or TOPLEVEL_VERSION != package_toplevel_version:
+        if git_sha != git_sha2 or (TOPLEVEL_VERSION != package_toplevel_version and package_name != "pop-launcher"):
             if (git_sha != git_sha2):
                 print(f"[PACKAGE: {package_name}] git sha {git_sha} doesn't match newest sha {git_sha2}")
             else:
