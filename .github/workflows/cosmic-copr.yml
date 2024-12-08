@@ -17,6 +17,7 @@ jobs:
   build:
     name: Build 
     runs-on: ubuntu-22.04
+    container: fedora:latest
     permissions:
       contents: read
       packages: write
@@ -25,4 +26,5 @@ jobs:
     steps:
       - run: echo ${{env.COPR_AUTH}} >> ~/.config/copr
       - uses: actions/checkout@v4
+      - run: sudo dnf install -y copr-cli
       - run: python3 ./copr-build.py
