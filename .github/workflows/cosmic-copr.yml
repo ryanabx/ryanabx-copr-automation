@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - run: echo ${{env.COPR_AUTH}} >> ~/.config/copr
+      - run: mkdir -p ~/.config/ && echo ${{env.COPR_AUTH}} >> ~/.config/copr
       - uses: actions/checkout@v4
       - run: sudo dnf install -y copr-cli
       - run: python3 ./copr-build.py
