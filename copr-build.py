@@ -56,7 +56,7 @@ repos = {
 }
 
 COPR = "ryanabx/cosmic-epoch"
-TOPLEVEL_VERSION = "1.0.0~alpha.5"
+TOPLEVEL_VERSION = "1.0.0~alpha.5.1"
 
 copr_config = os.environ.get("COPR_AUTH")
 if copr_config:
