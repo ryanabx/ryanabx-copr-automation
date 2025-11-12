@@ -2,9 +2,6 @@ name: Build COSMIC copr
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
   schedule:
     - cron: "0 23 * * *" # 2pm UTC everyday (timed against official fedora container pushes)
 
