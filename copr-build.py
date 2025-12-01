@@ -58,7 +58,11 @@ repos = {
 }
 
 COPR = "ryanabx/cosmic-epoch"
-TOPLEVEL_VERSION = "1.0.0~beta.6"
+toplevel_version_url = "https://pagure.io/fedora-cosmic/cosmic-packaging/raw/main/f/latest_tag"
+toplevel_version_response = requests.get(url)
+
+TOPLEVEL_VERSION = toplevel_version_response.text
+print(f"Toplevel version is {TOPLEVEL_VERSION}")
 
 copr_config = os.environ.get("COPR_AUTH")
 if copr_config:
