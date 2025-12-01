@@ -59,7 +59,7 @@ repos = {
 
 COPR = "ryanabx/cosmic-epoch"
 toplevel_version_url = "https://pagure.io/fedora-cosmic/cosmic-packaging/raw/main/f/latest_tag"
-toplevel_version_response = requests.get(url)
+toplevel_version_response = requests.get(toplevel_version_url)
 
 TOPLEVEL_VERSION = toplevel_version_response.text
 print(f"Toplevel version is {TOPLEVEL_VERSION}")
