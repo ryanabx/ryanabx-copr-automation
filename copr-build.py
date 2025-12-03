@@ -195,6 +195,7 @@ latest_tags = {}
 for pkg in repos.keys():
     latest_tags[pkg] = get_latest_tag(pkg)
     time.sleep(5)
+latest_tags["cosmic-desktop"] = get_latest_tag("cosmic-epoch")
 
 for i in copr_packages:
     build_package(i, True, latest_tags[i["name"]])
