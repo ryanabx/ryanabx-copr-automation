@@ -120,6 +120,9 @@ def build_package(package, nightly, latest_tag):
     else:
         package_toplevel_version = package_toplevel_version.rsplit("-", 1)[0]
 
+    # Also ignore epoch versioning (i.e. 1:{version})
+    package_toplevel_version = package_toplevel_version.split(":", 1)[1]
+
     if package_toplevel_version == "":
         print(
             f"Error: Could not get package_toplevel_version for package {package_name}"
@@ -135,7 +138,7 @@ def build_package(package, nightly, latest_tag):
         json_data = req.json()
         git_sha2 = json_data[0]["sha"][0:7]
         if (nightly and git_sha != git_sha2) or (
-            latest_tag != package_toplevel_version and package_name != "pop-launcher"
+            latest_tag != package_toplevel_version
         ):
             if nightly and git_sha != git_sha2:
                 print(
