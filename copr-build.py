@@ -147,7 +147,7 @@ def build_package(package, nightly):
             print(f"Will build new version for package {package_name} Nightly={nightly}")
             try:
                 subprocess.run(
-                    ["copr-cli", "build-package", "--name", package_name, COPR],
+                    ["copr-cli", "build-package", "--name", package_name, COPR if nightly else TAGGED_COPR],
                     timeout=10,
                 )
             except subprocess.TimeoutExpired:
