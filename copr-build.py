@@ -109,7 +109,7 @@ def build_package(package, nightly):
         package["latest_succeeded_build"]["source_package"]["version"]
         .rsplit(".", 1)[1]
         .split("-")[0]
-    )
+    ) if nightly else ""
     package_toplevel_version = package["latest_succeeded_build"]["source_package"][
         "version"
     ]
@@ -132,10 +132,10 @@ def build_package(package, nightly):
     if req.status_code == 200:
         json_data = req.json()
         git_sha2 = json_data[0]["sha"][0:7]
-        if git_sha != git_sha2 or (
+        if (nightly and git_sha != git_sha2) or (
             latest_tag != package_toplevel_version and package_name != "pop-launcher"
         ):
-            if git_sha != git_sha2:
+            if nightly and git_sha != git_sha2:
                 print(
                     f"[PACKAGE: {package_name}] git sha {git_sha} doesn't match newest sha {git_sha2}"
                 )
