@@ -3,7 +3,7 @@ name: Build COSMIC copr
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 23 * * *" # 2pm UTC everyday (timed against official fedora container pushes)
+    - cron: "0 11,23 * * *" # 2pm UTC everyday (timed against official fedora container pushes)
 
 env:
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}

@@ -96,12 +96,11 @@ headers = {
 }
 
 
-def build_package(package, nightly):
+def build_package(package, nightly, latest_tag):
     # print(i.keys())
     package_name = package["name"]
     if package_name not in repos:
         return
-    latest_tag = get_latest_tag(package_name)
     # print(package["name"])
     # print(package["latest_succeeded_build"].keys())
     # print(package["latest_succeeded_build"]["source_package"]["version"])
@@ -189,9 +188,16 @@ copr_nightly_packages = json.loads(
     ).stdout.strip()
 )
 
+import time
+
+latest_tags = {}
+
+for pkg in repos.keys():
+    latest_tags[pkg] = get_latest_tag(pkg)
+    time.sleep(5)
 
 for i in copr_packages:
-    build_package(i, True)
+    build_package(i, True, latest_tags[i["name"]])
 
 for i in copr_nightly_packages:
-    build_package(i, False)
+    build_package(i, False, latest_tags[i["name"]])
