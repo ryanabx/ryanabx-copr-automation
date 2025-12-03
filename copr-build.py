@@ -71,6 +71,7 @@ def get_latest_tag(package: str) -> str:
 
 
 COPR = "ryanabx/cosmic-epoch"
+TAGGED_COPR = "ryanabx/cosmic-epoch-tagged"
 
 copr_config = os.environ.get("COPR_AUTH")
 if copr_config:
@@ -94,47 +95,34 @@ headers = {
     "Accept": "application/vnd.github.v3+json",  # Use the GitHub API version
 }
 
-# First, we list packages in the copr
 
-
-copr_packages = json.loads(
-    subprocess.run(
-        [
-            "copr-cli",
-            "list-packages",
-            "--with-latest-succeeded-build",
-            "--output-format",
-            "json",
-            COPR,
-        ],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-)
-
-
-for i in copr_packages:
+def build_package(package, nightly):
     # print(i.keys())
-    package_name = i["name"]
+    package_name = package["name"]
     if package_name not in repos:
-        continue
+        return
     latest_tag = get_latest_tag(package_name)
-    # print(i["name"])
-    # print(i["latest_succeeded_build"].keys())
-    # print(i["latest_succeeded_build"]["source_package"]["version"])
+    # print(package["name"])
+    # print(package["latest_succeeded_build"].keys())
+    # print(package["latest_succeeded_build"]["source_package"]["version"])
     git_sha = (
-        i["latest_succeeded_build"]["source_package"]["version"]
+        package["latest_succeeded_build"]["source_package"]["version"]
         .rsplit(".", 1)[1]
         .split("-")[0]
     )
-    package_toplevel_version = i["latest_succeeded_build"]["source_package"][
+    package_toplevel_version = package["latest_succeeded_build"]["source_package"][
         "version"
-    ].split("^", 1)[0]
+    ]
+    # If it's nightly, remove the part of the tag after ^
+    # i.e. {version}^git{tag}
+    if nightly:
+        package_toplevel_version = package_toplevel_version.split("^", 1)[0]
+
     if package_toplevel_version == "":
         print(
             f"Error: Could not get package_toplevel_version for package {package_name}"
         )
-        continue
+        return
     print(f"Toplevel version for {package_name}: {latest_tag}")
     # print(git_sha)
     req = requests.get(
@@ -154,9 +142,9 @@ for i in copr_packages:
             else:
                 pass
                 print(
-                    f"[PACKAGE: {package_name}] toplevel version {package_toplevel_version} does not match newest version {TOPLEVEL_VERSION}"
+                    f"[PACKAGE: {package_name}] toplevel version {package_toplevel_version} does not match newest version {latest_tag}"
                 )
-            print(f"Will build new version for package {package_name}")
+            print(f"Will build new version for package {package_name} Nightly={nightly}")
             try:
                 subprocess.run(
                     ["copr-cli", "build-package", "--name", package_name, COPR],
@@ -166,3 +154,42 @@ for i in copr_packages:
                 pass
     else:
         print(f"Error: {req.status_code}, {req.text}")
+
+
+# First, we list packages in the coprs
+copr_packages = json.loads(
+    subprocess.run(
+        [
+            "copr-cli",
+            "list-packages",
+            "--with-latest-succeeded-build",
+            "--output-format",
+            "json",
+            COPR,
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+)
+
+copr_nightly_packages = json.loads(
+    subprocess.run(
+        [
+            "copr-cli",
+            "list-packages",
+            "--with-latest-succeeded-build",
+            "--output-format",
+            "json",
+            TAGGED_COPR,
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+)
+
+
+for i in copr_packages:
+    build_package(i, True)
+
+for i in copr_nightly_packages:
+    build_package(i, False)
