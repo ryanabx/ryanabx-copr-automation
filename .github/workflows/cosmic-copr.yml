@@ -24,4 +24,4 @@ jobs:
       - run: mkdir -p ~/.config/ && echo $COPR_AUTH >> ~/.config/copr
       - uses: actions/checkout@v4
       - run: sudo dnf install -y copr-cli
-      - run: python3 ./copr-build.py
+      - run: python3 -u ./copr-build.py
