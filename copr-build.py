@@ -56,6 +56,7 @@ repos = {
     "cosmic-workspaces": "cosmic-workspaces-epoch",
     "pop-launcher": "launcher",
     "xdg-desktop-portal-cosmic": "xdg-desktop-portal-cosmic",
+    "cosmic-epoch": "cosmic-epoch",
 }
 
 
@@ -199,7 +200,9 @@ latest_tags["cosmic-desktop"] = get_latest_tag("cosmic-epoch")
 latest_tags["cosmic-epoch"] = latest_tags["cosmic-desktop"]
 
 for i in copr_packages:
-    build_package(i, True, latest_tags[i["name"]])
+    if i["name"] in latest_tags:
+        build_package(i, True, latest_tags[i["name"]])
 
 for i in copr_nightly_packages:
-    build_package(i, False, latest_tags[i["name"]])
+    if i["name"] in latest_tags:
+        build_package(i, False, latest_tags[i["name"]])
