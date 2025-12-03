@@ -117,6 +117,8 @@ def build_package(package, nightly):
     # i.e. {version}^git{tag}
     if nightly:
         package_toplevel_version = package_toplevel_version.split("^", 1)[0]
+    else:
+        package_toplevel_version = package_toplevel_version.rsplit("-", 1)[0]
 
     if package_toplevel_version == "":
         print(
