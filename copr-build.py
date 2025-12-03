@@ -1,6 +1,7 @@
 import subprocess
 import json
 import requests
+from urllib.request import urlopen
 import os
 
 # Packages::CosmicAppLibrary,
@@ -57,12 +58,19 @@ repos = {
     "xdg-desktop-portal-cosmic": "xdg-desktop-portal-cosmic",
 }
 
-COPR = "ryanabx/cosmic-epoch"
-toplevel_version_url = "https://pagure.io/fedora-cosmic/cosmic-packaging/raw/main/f/latest_tag"
-toplevel_version_response = requests.get(toplevel_version_url)
 
-TOPLEVEL_VERSION = toplevel_version_response.text
-print(f"Toplevel version is {TOPLEVEL_VERSION}")
+# Get the latest tag from the pop-os repo
+def get_latest_tag(package: str) -> str:
+    repo_name = repos[package]
+    url = f"https://api.github.com/repos/pop-os/{repo_name}/tags"
+    with urlopen(url) as response:
+        data = json.load(response)
+        res: str = data[0]["name"].strip()
+        # Return the name with epoch- removed and with `-` replaced with `~`
+        return res.split("epoch-", 1)[1].replace("-", "~")
+
+
+COPR = "ryanabx/cosmic-epoch"
 
 copr_config = os.environ.get("COPR_AUTH")
 if copr_config:
@@ -83,14 +91,26 @@ if copr_config:
 token = os.environ.get("PAT_GITHUB")
 headers = {
     "Authorization": f"Bearer {token}",
-    "Accept": "application/vnd.github.v3+json"  # Use the GitHub API version
+    "Accept": "application/vnd.github.v3+json",  # Use the GitHub API version
 }
 
 # First, we list packages in the copr
 
 
-
-copr_packages = json.loads(subprocess.run(["copr-cli", "list-packages", "--with-latest-succeeded-build", "--output-format", "json", COPR], capture_output=True, text=True).stdout.strip())
+copr_packages = json.loads(
+    subprocess.run(
+        [
+            "copr-cli",
+            "list-packages",
+            "--with-latest-succeeded-build",
+            "--output-format",
+            "json",
+            COPR,
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+)
 
 
 for i in copr_packages:
@@ -98,25 +118,50 @@ for i in copr_packages:
     package_name = i["name"]
     if package_name not in repos:
         continue
+    latest_tag = get_latest_tag(package_name)
     # print(i["name"])
     # print(i["latest_succeeded_build"].keys())
     # print(i["latest_succeeded_build"]["source_package"]["version"])
-    git_sha = i["latest_succeeded_build"]["source_package"]["version"].rsplit(".", 1)[1].split("-")[0]
-    package_toplevel_version = i["latest_succeeded_build"]["source_package"]["version"].split("^", 1)[0]
+    git_sha = (
+        i["latest_succeeded_build"]["source_package"]["version"]
+        .rsplit(".", 1)[1]
+        .split("-")[0]
+    )
+    package_toplevel_version = i["latest_succeeded_build"]["source_package"][
+        "version"
+    ].split("^", 1)[0]
+    if package_toplevel_version == "":
+        print(
+            f"Error: Could not get package_toplevel_version for package {package_name}"
+        )
+        continue
+    print(f"Toplevel version for {package_name}: {latest_tag}")
     # print(git_sha)
-    req = requests.get(f"https://api.github.com/repos/pop-os/{repos[package_name]}/commits", headers=headers)
+    req = requests.get(
+        f"https://api.github.com/repos/pop-os/{repos[package_name]}/commits",
+        headers=headers,
+    )
     if req.status_code == 200:
         json_data = req.json()
         git_sha2 = json_data[0]["sha"][0:7]
-        if git_sha != git_sha2 or (TOPLEVEL_VERSION != package_toplevel_version and package_name != "pop-launcher"):
-            if (git_sha != git_sha2):
-                print(f"[PACKAGE: {package_name}] git sha {git_sha} doesn't match newest sha {git_sha2}")
+        if git_sha != git_sha2 or (
+            latest_tag != package_toplevel_version and package_name != "pop-launcher"
+        ):
+            if git_sha != git_sha2:
+                print(
+                    f"[PACKAGE: {package_name}] git sha {git_sha} doesn't match newest sha {git_sha2}"
+                )
             else:
                 pass
-                print(f"[PACKAGE: {package_name}] toplevel version {package_toplevel_version} does not match newest version {TOPLEVEL_VERSION}")
+                print(
+                    f"[PACKAGE: {package_name}] toplevel version {package_toplevel_version} does not match newest version {TOPLEVEL_VERSION}"
+                )
             print(f"Will build new version for package {package_name}")
             try:
-                subprocess.run(["copr-cli", "build-package", "--name", package_name, COPR], timeout=10)
+                subprocess.run(
+                    ["copr-cli", "build-package", "--name", package_name, COPR],
+                    timeout=10,
+                )
             except subprocess.TimeoutExpired:
                 pass
     else:
