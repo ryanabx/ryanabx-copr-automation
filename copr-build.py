@@ -121,7 +121,7 @@ def build_package(package, nightly, latest_tag):
         package_toplevel_version = package_toplevel_version.rsplit("-", 1)[0]
 
     # Also ignore epoch versioning (i.e. 1:{version})
-    package_toplevel_version = package_toplevel_version.split(":", 1)[1]
+    package_toplevel_version = package_toplevel_version.split(":", 1)[-1]
 
     if package_toplevel_version == "":
         print(
