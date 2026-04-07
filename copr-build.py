@@ -1,35 +1,10 @@
 import subprocess
 import json
 import requests
-from urllib.request import urlopen
 import os
+import time
 
-# Packages::CosmicAppLibrary,
-# Packages::CosmicApplets,
-# Packages::CosmicBg,
-# Packages::CosmicComp,
-# Packages::CosmicEdit,
-# Packages::CosmicFiles,
-# Packages::CosmicGreeter,
-# Packages::CosmicIcons,
-# Packages::CosmicIdle,
-# Packages::CosmicInitialSetup,
-# Packages::CosmicLauncher,
-# Packages::CosmicNotifications,
-# Packages::CosmicOsd,
-# Packages::CosmicPanel,
-# Packages::CosmicRandr,
-# Packages::CosmicScreenshot,
-# Packages::CosmicSession,
-# Packages::CosmicSettings,
-# Packages::CosmicSettingsDaemon,
-# Packages::CosmicStore,
-# Packages::CosmicTerm,
-# Packages::CosmicWorkspaces,
-# Packages::PopLauncher,
-# Packages::XdgDesktopPortalCosmic,
-
-repos = {
+REPOS = {
     "cosmic-app-library": "cosmic-applibrary",
     "cosmic-applets": "cosmic-applets",
     "cosmic-bg": "cosmic-bg",
@@ -59,23 +34,13 @@ repos = {
     "cosmic-epoch": "cosmic-epoch",
 }
 
-
-# Get the latest tag from the pop-os repo
-def get_latest_tag(package: str) -> str:
-    repo_name = repos[package]
-    url = f"https://api.github.com/repos/pop-os/{repo_name}/tags"
-    with urlopen(url) as response:
-        data = json.load(response)
-        res: str = data[0]["name"].strip()
-        # Return the name with epoch- removed and with `-` replaced with `~`
-        return res.split("epoch-", 1)[1].replace("-", "~")
-
-
-COPR = "ryanabx/cosmic-epoch"
+NIGHTLY_COPR = "ryanabx/cosmic-epoch"
 TAGGED_COPR = "ryanabx/cosmic-epoch-tagged"
 
-copr_config = os.environ.get("COPR_AUTH")
-if copr_config:
+# Set up authentication for GitHub API and COPR API
+
+COPR_CONFIG = os.environ.get("COPR_AUTH")
+if COPR_CONFIG:
     # Get the path to ~/.config/copr
     config_dir = os.path.expanduser("~/.config")
     config_file = os.path.join(config_dir, "copr")
@@ -84,128 +49,243 @@ if copr_config:
     os.makedirs(config_dir, exist_ok=True)
     # Write content to the file
     with open(config_file, "w") as file:
-        file.write(copr_config)
+        file.write(COPR_CONFIG)
 
     print(f"Configuration written to {config_file}")
 
-# print(token)
-# exit()
-token = os.environ.get("PAT_GITHUB")
-headers = {
-    "Authorization": f"Bearer {token}",
+TOKEN = os.environ.get("PAT_GITHUB")
+HEADERS = {
+    "Authorization": f"Bearer {TOKEN}",
     "Accept": "application/vnd.github.v3+json",  # Use the GitHub API version
 }
 
 
-def build_package(package, nightly, latest_tag):
-    # print(i.keys())
-    package_name = package["name"]
-    if package_name not in repos:
-        return
-    # print(package["name"])
-    # print(package["latest_succeeded_build"].keys())
-    # print(package["latest_succeeded_build"]["source_package"]["version"])
-    git_sha = (
-        package["latest_succeeded_build"]["source_package"]["version"]
-        .rsplit(".", 1)[1]
-        .split("-")[0]
-    ) if nightly else ""
-    package_toplevel_version = package["latest_succeeded_build"]["source_package"][
-        "version"
-    ]
-    # If it's nightly, remove the part of the tag after ^
-    # i.e. {version}^git{tag}
-    if nightly:
-        package_toplevel_version = package_toplevel_version.split("^", 1)[0]
-    else:
-        package_toplevel_version = package_toplevel_version.rsplit("-", 1)[0]
+class Package:
+    """
+    Simple structure to represent a package from COSMIC
+    """
 
-    # Also ignore epoch versioning (i.e. 1:{version})
-    package_toplevel_version = package_toplevel_version.split(":", 1)[-1]
+    def __init__(
+        self,
+        package: str,
+        upstream_repo_name: str,
+        newest_nightly_commit: str,
+        newest_nightly_tag: str,
+        newest_tagged_tag: str,
+        nightly_build_status: str,
+        tagged_build_status: str,
+    ):
+        self.package = package
+        self.upstream_repo_name = upstream_repo_name
+        self.newest_nightly_commit = newest_nightly_commit
+        self.newest_nightly_tag = newest_nightly_tag
+        self.newest_tagged_tag = newest_tagged_tag
+        self.nightly_build_status = nightly_build_status
+        self.tagged_build_status = tagged_build_status
+        # Get newest commit and tag
+        self.newest_commit = self._get_latest_upstream_commit()
+        self.newest_tag = self._get_latest_upstream_tag()
 
-    if package_toplevel_version == "":
-        print(
-            f"Error: Could not get package_toplevel_version for package {package_name}"
+    def _get_latest_upstream_tag(self) -> str:
+        """
+        Get the latest tag for the upstream repo
+        """
+        req = requests.get(
+            f"https://api.github.com/repos/pop-os/{self.upstream_repo_name}/tags",
+            headers=HEADERS,
         )
-        return
-    print(f"Toplevel version for {package_name}: {latest_tag}")
-    # print(git_sha)
-    req = requests.get(
-        f"https://api.github.com/repos/pop-os/{repos[package_name]}/commits",
-        headers=headers,
+        if req.status_code == 200:
+            json_data = req.json()
+            res: str = json_data[0]["name"].strip()
+            # Return the name with epoch- removed and with `-` replaced with `~`
+            return res.split("epoch-", 1)[1].replace("-", "~")
+        print(f"WARNING: Could not get latest tag for {self.package}")
+        return ""
+
+    def _get_latest_upstream_commit(self) -> str:
+        """
+        Get the latest commit for the upstream repo
+        """
+        req = requests.get(
+            f"https://api.github.com/repos/pop-os/{self.upstream_repo_name}/commits",
+            headers=HEADERS,
+        )
+        if req.status_code == 200:
+            json_data = req.json()
+            git_sha = json_data[0]["sha"][0:7]
+            return git_sha
+        print(f"WARNING: Could not get latest commit for {self.package}")
+        return ""
+
+    def should_build_nightly_package(self) -> bool:
+        """
+        `True` if should build nightly, `False` otherwise
+        """
+        if (
+            self.newest_commit == "" or self.newest_tag == ""
+        ):  # There was a problem getting the newest commit or tag
+            return False
+
+        if self.nightly_build_status == "pending":
+            print(f"{self.package}: Nightly build is already pending")
+            return False
+        if self.nightly_build_status == "running":
+            print(f"{self.package}: Nightly build is already running")
+            return False
+        if self.newest_commit != self.newest_nightly_commit:
+            print(
+                f"{self.package}: Commit {self.newest_commit} is newer than {self.newest_nightly_commit}. Needs nightly build."
+            )
+            return True
+        if self.newest_tag != self.newest_nightly_tag:
+            print(
+                f"{self.package}: Tag {self.newest_tag} is newer than {self.newest_nightly_tag}. Needs nightly build."
+            )
+            return True
+        print(f"{self.package}: Build not needed")
+        return False
+
+    def should_build_tagged_package(self) -> bool:
+        """
+        `True` if should build tagged, `False` otherwise
+        """
+        if self.newest_tag == "":  # There was a problem getting the newest tag
+            return False
+        if self.tagged_build_status == "pending":
+            print(f"{self.package}: Tagged build is already pending")
+            return False
+        if self.tagged_build_status == "running":
+            print(f"{self.package}: Tagged build is already running")
+            return False
+        if self.newest_tag != self.newest_tagged_tag:
+            print(
+                f"{self.package}: Tag {self.newest_tag} is newer than {self.newest_tagged_tag}. Needs tagged build."
+            )
+            return True
+        return False
+
+
+def parse_tagged_tag(full_string: str) -> str:
+    """
+    Get the tag from a tagged copr version string
+    """
+    return full_string.rsplit("-", 1)[0].split(":", 1)[  # 1:1.0.8-1  # 1:1.0.8
+        -1
+    ]  # 1.0.8
+
+
+def parse_nightly_tag(full_string: str) -> str:
+    """
+    Get the tag from a nightly copr version string
+    """
+    return full_string.split("^", 1)[  # 1:1.0.8^git20260323.9973b03-1
+        0
+    ].split(  # 1:1.0.8
+        ":", 1
+    )[
+        -1
+    ]  # 1.0.8
+
+
+def parse_nightly_commit(full_string: str) -> str:
+    """
+    Get the commit from a nightly copr version string
+    """
+    return full_string.rsplit(".", 1)[  # 1:1.0.8^git20260323.9973b03-1
+        -1
+    ].split(  # 9973b03-1
+        "-", 1
+    )[
+        0
+    ]  # 9973b03
+
+
+def main():
+    # First, we list packages in the coprs
+    copr_packages = json.loads(
+        subprocess.run(
+            [
+                "copr-cli",
+                "list-packages",
+                "--with-latest-build",
+                "--with-latest-succeeded-build",
+                "--output-format",
+                "json",
+                NIGHTLY_COPR,
+            ],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
     )
-    if req.status_code == 200:
-        json_data = req.json()
-        git_sha2 = json_data[0]["sha"][0:7]
-        if (nightly and git_sha != git_sha2) or (
-            latest_tag != package_toplevel_version
-        ):
-            if nightly and git_sha != git_sha2:
-                print(
-                    f"[PACKAGE: {package_name}] git sha {git_sha} doesn't match newest sha {git_sha2}"
-                )
-            else:
-                pass
-                print(
-                    f"[PACKAGE: {package_name}] toplevel version {package_toplevel_version} does not match newest version {latest_tag}"
-                )
-            print(f"Will build new version for package {package_name} Nightly={nightly}")
-            try:
-                subprocess.run(
-                    ["copr-cli", "build-package", "--name", package_name, COPR if nightly else TAGGED_COPR],
-                    timeout=10,
-                )
-            except subprocess.TimeoutExpired:
-                pass
-    else:
-        print(f"Error: {req.status_code}, {req.text}")
+
+    copr_nightly_packages = json.loads(
+        subprocess.run(
+            [
+                "copr-cli",
+                "list-packages",
+                "--with-latest-build",
+                "--with-latest-succeeded-build",
+                "--output-format",
+                "json",
+                TAGGED_COPR,
+            ],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+
+    nightly_builds: list[str] = []
+    tagged_builds: list[str] = []
+
+    for pkg in copr_packages:
+        pkg_name = pkg["name"]
+        tagged_pkg = next(
+            (item for item in copr_nightly_packages if item["name"] == pkg_name), None
+        )
+        if tagged_pkg and pkg_name in REPOS.keys():
+            print(f"Checking if {pkg_name} should build...")
+            package = Package(
+                pkg_name,
+                REPOS[pkg_name],
+                parse_nightly_commit(
+                    pkg["latest_succeeded_build"]["source_package"]["version"]
+                ),
+                parse_nightly_tag(
+                    pkg["latest_succeeded_build"]["source_package"]["version"]
+                ),
+                parse_tagged_tag(
+                    tagged_pkg["latest_succeeded_build"]["source_package"]["version"]
+                ),
+                pkg["latest_build"]["state"],
+                tagged_pkg["latest_build"]["state"],
+            )
+            if package.should_build_nightly_package():
+                nightly_builds.append(package.package)
+            if package.should_build_tagged_package():
+                tagged_builds.append(package.package)
+            time.sleep(5)
+        else:
+            print(f"Skipping {pkg_name}")
+
+    print(f"Queueing builds:\n\nNightly:\n{nightly_builds}\n\nTagged:\n{tagged_builds}")
+
+    for i in nightly_builds:
+        try:
+            subprocess.run(
+                ["copr-cli", "build-package", "--name", i, NIGHTLY_COPR],
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            pass
+    for i in tagged_builds:
+        try:
+            subprocess.run(
+                ["copr-cli", "build-package", "--name", i, TAGGED_COPR],
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            pass
 
 
-# First, we list packages in the coprs
-copr_packages = json.loads(
-    subprocess.run(
-        [
-            "copr-cli",
-            "list-packages",
-            "--with-latest-succeeded-build",
-            "--output-format",
-            "json",
-            COPR,
-        ],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-)
-
-copr_nightly_packages = json.loads(
-    subprocess.run(
-        [
-            "copr-cli",
-            "list-packages",
-            "--with-latest-succeeded-build",
-            "--output-format",
-            "json",
-            TAGGED_COPR,
-        ],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-)
-
-import time
-
-latest_tags = {}
-
-for pkg in repos.keys():
-    latest_tags[pkg] = get_latest_tag(pkg)
-    time.sleep(5)
-latest_tags["cosmic-desktop"] = get_latest_tag("cosmic-epoch")
-latest_tags["cosmic-epoch"] = latest_tags["cosmic-desktop"]
-
-for i in copr_packages:
-    if i["name"] in latest_tags:
-        build_package(i, True, latest_tags[i["name"]])
-
-for i in copr_nightly_packages:
-    if i["name"] in latest_tags:
-        build_package(i, False, latest_tags[i["name"]])
+if __name__ == "__main__":
+    main()
