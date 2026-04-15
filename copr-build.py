@@ -272,7 +272,7 @@ def main():
     for i in nightly_builds:
         try:
             subprocess.run(
-                ["copr-cli", "build-package", "--name", i, NIGHTLY_COPR],
+                ["copr-cli", "build-package", "--timeout", "36000", "--name", i, NIGHTLY_COPR],
                 timeout=10,
             )
         except subprocess.TimeoutExpired:
@@ -280,7 +280,7 @@ def main():
     for i in tagged_builds:
         try:
             subprocess.run(
-                ["copr-cli", "build-package", "--name", i, TAGGED_COPR],
+                ["copr-cli", "build-package", "--timeout", "36000", "--name", i, TAGGED_COPR],
                 timeout=10,
             )
         except subprocess.TimeoutExpired:
